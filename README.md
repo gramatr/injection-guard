@@ -101,6 +101,25 @@ comply with:
   true today — this project only runs inference as-is), that model's
   name must begin with "Llama."
 
+## Model size: 86M only, not configurable
+
+Compared both Prompt Guard 2 sizes against a small hand-labeled eval set
+(`eval/dataset.py`, `eval/compare_models.py` — English + French/Spanish/
+Chinese injection and benign examples):
+
+| Model | Accuracy | Avg latency | False negatives |
+|---|---|---|---|
+| 86M | 93.8% | 64.8ms | 1 |
+| 22M | 68.8% | 23.5ms | 5 |
+
+22M saves ~40ms per classification — imperceptible for a synchronous
+hook gating a tool call — in exchange for missing roughly 1 in 3 attacks
+instead of 1 in 16, including 2 of 3 non-English cases. Not a real
+tradeoff, so there's no user-facing size option: `config.py` defaults to
+86M and that's the only size shipped. Re-run `eval/compare_models.py` if
+this ever needs revisiting (e.g. a future Prompt Guard version, or a
+resource-constrained deployment target where 40ms actually matters).
+
 ## v1 scope notes
 
 - Uses `transformers` + `torch` (CPU), not `onnxruntime`. PyTorch ships

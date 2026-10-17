@@ -36,6 +36,16 @@ def load_model() -> None:
     _model.eval()
 
 
+#  model.config.id2label on this checkpoint is the generic {0: "LABEL_0",
+#  1: "LABEL_1"} placeholder, NOT "BENIGN"/"MALICIOUS" as Meta's model
+#  card text implies — confirmed empirically (not from docs) against
+#  both the 86M and 22M checkpoints: index 0 is benign, index 1 is
+#  malicious, consistently. A string match against "MALICIOUS" here
+#  silently never fires — this is exactly that bug, fixed.
+MALICIOUS_INDEX = 1
+BENIGN_INDEX = 0
+
+
 def _classify_chunk(text: str) -> tuple[str, float]:
     inputs = _tokenizer(
         text, return_tensors="pt", truncation=True, max_length=MAX_TOKENS
@@ -44,7 +54,7 @@ def _classify_chunk(text: str) -> tuple[str, float]:
         logits = _model(**inputs).logits
     probs = torch.softmax(logits, dim=-1)[0]
     pred_id = int(probs.argmax().item())
-    label = _model.config.id2label[pred_id]
+    label = "MALICIOUS" if pred_id == MALICIOUS_INDEX else "BENIGN"
     score = float(probs[pred_id].item())
     return label, score
 
