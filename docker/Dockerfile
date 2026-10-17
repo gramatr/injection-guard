@@ -11,10 +11,13 @@ FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock README.md ./
 COPY src/ ./src/
 
-RUN uv pip install --system .
+# --frozen: installs the exact versions in uv.lock (what was actually
+# tested locally), not a fresh resolve that could silently drift.
+RUN uv sync --frozen --no-dev
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Model weights download on first container start (cached in the image
 # layer below is NOT done here deliberately — Meta's license is gated,
@@ -23,6 +26,16 @@ RUN uv pip install --system .
 # themselves. Pulling at startup means each deployer authenticates to
 # Hugging Face with their own accepted-license token instead.)
 ENV HF_HOME=/app/.cache/huggingface
+
+# config.py's default (127.0.0.1) is correct for a non-containerized
+# direct run on a dev machine — loopback-only, no network exposure.
+# Inside a container that default is wrong: Docker's published-port
+# mapping (`-p host:container`) routes to the container's external
+# interface, not its loopback, so a daemon bound to 127.0.0.1 in here
+# is unreachable from outside the container even with -p set. The
+# container's network namespace is the actual isolation boundary, so
+# binding all interfaces inside it is safe.
+ENV INJECTION_GUARD_HOST=0.0.0.0
 
 EXPOSE 8730
 
