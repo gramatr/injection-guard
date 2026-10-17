@@ -1,0 +1,92 @@
+name: build-image
+
+# Publishes BOTH variants to ghcr.io, not just the default — the GPU-
+# capable image is 5.85GB (nvidia+torch+triton, most of it unused on
+# a CPU-only deploy target, see README "CPU vs GPU"); the lean
+# docker/Dockerfile.cpu variant is 1.12GB. Forcing everyone to pull the
+# full image "just in case" wastes ~4.7GB of download for anyone who
+# knows they're not using a GPU.
+#
+# Pattern copied from gramatr/soc2-coordination's build-kestra-cert-dist.yaml
+# (the org's established ghcr.io push template, confirmed working
+# across 12+ gramatr repos) — not invented here. Public repo, so this
+# stays on GitHub-hosted ubuntu-latest per the github-actions-runner-
+# policy standard (arc-runner-gramatr refuses jobs from public repos).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docker/**
+      - src/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/build-image.yaml
+  workflow_dispatch: {}
+
+env:
+  IMAGE_NAME: ghcr.io/gramatr/injection-guard
+
+jobs:
+  build-gpu:
+    name: Build & push (GPU-capable, default)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=gpu
+            type=sha,prefix=sha-
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  build-cpu:
+    name: Build & push (CPU-only, lean)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=cpu
+            type=sha,prefix=cpu-sha-
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.cpu
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
