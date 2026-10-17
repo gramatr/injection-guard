@@ -15,6 +15,15 @@ dependencies = [
 [project.scripts]
 injection-guard-daemon = "injection_guard.daemon:main"
 
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "httpx>=0.27",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/injection_guard"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

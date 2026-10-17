@@ -23,6 +23,14 @@ _model = None
 MAX_TOKENS = 512
 CHUNK_OVERLAP = 32  # avoid splitting an injection phrase exactly at a chunk boundary
 
+# eval/compare_models.py: 86M scores 93.8% accuracy (1 FN) vs 22M's 68.8%
+# (5 FN, including 2/3 non-English cases) for ~40ms of latency that
+# doesn't matter in a synchronous hook. INJECTION_GUARD_MODEL_ID stays
+# overridable (useful once a future Prompt Guard version exists) but
+# ANY value other than this one downgrades real detection coverage with
+# no eval behind it — that must be loud, never silent.
+RECOMMENDED_MODEL_ID = "meta-llama/Llama-Prompt-Guard-2-86M"
+
 
 def load_model() -> None:
     """Called once at daemon startup — this is the only place model weights
@@ -30,6 +38,13 @@ def load_model() -> None:
     global _tokenizer, _model
     if _model is not None:
         return
+    if MODEL_ID != RECOMMENDED_MODEL_ID:
+        logger.warning(
+            "INJECTION_GUARD_MODEL_ID=%s overrides the eval-verified default (%s). "
+            "No accuracy data exists for this model in this project — see "
+            "eval/compare_models.py before trusting it in production.",
+            MODEL_ID, RECOMMENDED_MODEL_ID,
+        )
     logger.info("Loading %s (this happens once, not per request)", MODEL_ID)
     _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     _model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
