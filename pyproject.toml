@@ -1,0 +1,20 @@
+[project]
+name = "injection-guard"
+version = "0.1.0"
+description = "Prompt-injection/jailbreak detection daemon (Llama Prompt Guard 2) — runs as a local Docker service or a scaled grāmatr platform capability."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "torch>=2.2",
+  "transformers>=4.44",
+]
+
+[project.scripts]
+injection-guard-daemon = "injection_guard.daemon:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

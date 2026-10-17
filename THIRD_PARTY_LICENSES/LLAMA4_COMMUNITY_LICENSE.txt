@@ -1,0 +1,27 @@
+PLACEHOLDER — NOT THE VERBATIM LICENSE TEXT.
+
+This file exists to satisfy the Llama 4 Community License's requirement
+to include "a copy of the Agreement" with any distribution of the Llama
+Materials (which meta-llama/Llama-Prompt-Guard-2-86M is). Do not ship a
+release of this project, or push a built Docker image anywhere people
+can pull it, before this file is replaced with the real text.
+
+Why it's a placeholder right now: fetching the license automatically
+hit two walls —
+  1. The Hugging Face repo's raw LICENSE file requires an authenticated,
+     license-accepted HF token (returns 401 otherwise) — fetched without
+     one as of this commit.
+  2. Asking a web-fetch tool to reproduce Meta's canonical license page
+     verbatim returned a paraphrased summary, not the literal text — not
+     acceptable for an actual legal document.
+
+To fix: with an HF account that has accepted the gated license, run:
+  curl -H "Authorization: Bearer $HF_TOKEN" \
+    https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M/raw/main/LICENSE \
+    -o THIRD_PARTY_LICENSES/LLAMA4_COMMUNITY_LICENSE.txt
+and confirm the result matches https://www.llama.com/llama4/license/
+before replacing this placeholder.
+
+See NOTICE (repo root) for the required attribution line, and README.md
+for the full compliance footprint (the "Built with Llama" display
+requirement, the 700M MAU clause, and the model-naming requirement).
