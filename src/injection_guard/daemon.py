@@ -54,7 +54,11 @@ def _check_auth(authorization: str | None) -> None:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_loaded": model._model is not None}
+    return {
+        "status": "ok",
+        "model_loaded": model._model is not None,
+        "device": model._device,
+    }
 
 
 @app.get("/about")
