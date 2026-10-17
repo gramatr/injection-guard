@@ -3,7 +3,7 @@ Llama 4 is licensed under the Llama 4 Community License, Copyright © Meta Platf
 This software uses meta-llama/Llama-Prompt-Guard-2-86M (and optionally the
 -22M variant), licensed under the Llama 4 Community License Agreement.
 See THIRD_PARTY_LICENSES/LLAMA4_COMMUNITY_LICENSE.txt for the full terms —
-as of this commit that file is a PLACEHOLDER, not the verbatim license
-text (see that file's own header for why, and what's needed to fix it).
+fetched verbatim from Meta's gated Hugging Face repo via an authenticated
+token.
 
 "Built with Llama."

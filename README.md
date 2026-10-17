@@ -37,11 +37,10 @@ values to any remote endpoint, even your own, defeats its purpose.
 `injection-guard` classifies the *shape* of content (is this a jailbreak
 attempt), not raw secret values, which is why a hosted tier is on the
 table at all — but it still means your tool output transits the
-network. **Required before the hosted tier ships to anyone:** a
-documented zero-retention policy (scanned text is never logged or
-stored server-side) — not yet written as of this commit. Do not treat
-the hosted endpoint as production-ready until that policy exists and is
-linked here.
+network. See [`DATA_HANDLING.md`](DATA_HANDLING.md) for the zero-retention
+commitments — note its own caveat: it's an engineering design
+commitment, not yet a legal/compliance-reviewed policy. Do not cite it
+in anything customer-facing until that review happens.
 
 ## Running locally (advanced tier)
 
@@ -87,12 +86,14 @@ under the **Llama 4 Community License**, which this project must
 comply with:
 
 - **"Built with Llama"** must be displayed prominently somewhere
-  user-facing (website, about page, product docs) wherever this ships
-  — not yet done anywhere outside this README as of this commit.
+  user-facing (website, about page, product docs) wherever this ships.
+  The runtime `/about` endpoint carries it; a product website/about-page
+  display does not exist yet and is outside this repo's reach — that's
+  a grāmatr marketing/console-site dependency, not something fixable here.
 - **`NOTICE`** (repo root) carries the required Meta attribution line.
-- **`THIRD_PARTY_LICENSES/LLAMA4_COMMUNITY_LICENSE.txt`** is currently a
-  **placeholder, not the verbatim license text** — see that file's own
-  header for exactly why and how to fix it before any real distribution.
+- **`THIRD_PARTY_LICENSES/LLAMA4_COMMUNITY_LICENSE.txt`** is the real,
+  verbatim text, fetched directly from Meta's gated Hugging Face repo
+  via an authenticated token — not paraphrased, not fabricated.
 - **700M MAU clause:** if grāmatr or its affiliates ever exceed 700
   million monthly active users, a separate license must be requested
   from Meta. Not a concern today; noted so it isn't silently missed at
@@ -132,14 +133,47 @@ resource-constrained deployment target where 40ms actually matters).
 - 512-token input limit, handled by chunking longer text and flagging
   the whole input if any chunk is malicious (same "any match flags it"
   posture as `secret-guard`'s redaction logic).
+- **No GPU support exists.** `model.py` runs pure CPU inference — there
+  is no `.to("cuda")`, no device selection, nothing. At 86M params, CPU
+  latency (~65ms, see the eval table above) is fine for a synchronous
+  hook. If the hosted platform tier ever needs higher throughput under
+  real load, GPU execution would need to be added deliberately, not
+  assumed to already work because the hardware happens to be present.
+
+## Model size: locked to 86M, override is a loud footgun, not a feature
+
+`INJECTION_GUARD_MODEL_ID` is still an env var override (useful for a
+future Prompt Guard version without a code change), but setting it to
+anything other than the eval-verified default now logs an explicit
+startup warning — there is no eval data for any other model in this
+project, and silently downgrading real detection coverage (see the
+accuracy table above) is exactly the kind of thing that must be loud,
+not discoverable only by reading code.
+
+## Architecture (CPU) support
+
+Verified, not just claimed: `docker buildx build --platform linux/arm64`
+succeeds (dependencies resolve, no compile step needed — uv pulls
+prebuilt wheels even under QEMU emulation). `linux/amd64` is verified
+by the normal build+run+classify tests above. Only the build was
+verified for arm64 specifically — running the arm64 image itself under
+emulation would mostly re-prove correctness already shown on amd64, at
+a much higher time cost for a CPU-bound workload; worth doing on real
+arm64 hardware before relying on it, not as a blocker to call this done.
 
 ## Roadmap
 
-- [ ] Replace the placeholder license file with the verbatim text (needs an HF token with accepted license)
-- [ ] Write and link the hosted-tier zero-retention data policy before that endpoint is production
-- [ ] Display "Built with Llama" somewhere actually user-facing, not just this README
+- [x] Replace the placeholder license file with the verbatim text
+- [x] Verify the multi-arch build claim (arm64 build succeeds via QEMU)
+- [x] Lock down the model-size override with a loud warning instead of a silent downgrade
+- [x] Runtime `/about` endpoint carrying "Built with Llama" + license notice
+- [x] Write the hosted-tier data-handling policy (`DATA_HANDLING.md`) — still needs legal/compliance review before any customer-facing citation
+- [x] CI workflow — runs the real test suite (daemon + model) and the eval, using an HF token from Bitwarden
+- [ ] Display "Built with Llama" on an actual grāmatr website/about page — outside this repo's reach, needs the marketing/console-site team
 - [ ] `onnxruntime` backend as a lighter-footprint alternative to `torch`
+- [ ] GPU execution path, if the hosted tier ever needs the throughput
 - [ ] k8s manifests for the hosted deployment target (deferred — see soc2-coordination's repo boundaries for `prod-argocd-v2`)
+- [ ] Legal/compliance review of DATA_HANDLING.md
 - [ ] MCP server front-end for explicit tool-call access (vs. automatic hook-based gating only)
 
 ## License

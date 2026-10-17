@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Public repo — see github-actions-runner-policy (grāmatr standard):
+    # arc-runner-gramatr refuses jobs from public repos, so this stays on
+    # GitHub-hosted ubuntu-latest, which public repos get free.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get HF token from Bitwarden Secrets Manager
+        uses: bitwarden/sm-action@v3.0.0
+        with:
+          access_token: ${{ secrets.BWS_ACCESS_TOKEN }}
+          secrets: |
+            04488ffe-c39b-495c-bcd7-53a5248590f3 > HF_TOKEN
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Run daemon tests (health, auth — no model load required to fail fast on these)
+        run: uv run pytest tests/test_daemon.py -v
+
+      - name: Run model tests (requires the real gated model)
+        run: uv run pytest tests/test_model.py -v
+
+      - name: Run model-size comparison eval
+        working-directory: eval
+        run: uv run python compare_models.py

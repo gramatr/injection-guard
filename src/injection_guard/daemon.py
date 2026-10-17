@@ -57,6 +57,23 @@ def health():
     return {"status": "ok", "model_loaded": model._model is not None}
 
 
+@app.get("/about")
+def about():
+    """Llama 4 Community License requires 'Built with Llama' to be
+    displayed prominently wherever this ships — this endpoint is the
+    runtime-visible half of that. The repo's NOTICE/README/
+    THIRD_PARTY_LICENSES cover the static half. A product website/about
+    page display is a separate, not-yet-done requirement — see README."""
+    return {
+        "service": "injection-guard",
+        "model": config.MODEL_ID,
+        "attribution": "Built with Llama",
+        "license_notice": "Llama 4 is licensed under the Llama 4 Community License, "
+                           "Copyright © Meta Platforms, Inc. All Rights Reserved.",
+        "license_url": "https://www.llama.com/llama4/license/",
+    }
+
+
 @app.post("/classify", response_model=ClassifyResponse)
 def classify(req: ClassifyRequest, authorization: str | None = Header(default=None)):
     _check_auth(authorization)
