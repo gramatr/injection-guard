@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/absolute/path/to/injection-guard/adapters/claude-code/hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

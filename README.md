@@ -62,10 +62,21 @@ curl -X POST http://localhost:8730/classify \
 ## Claude Code adapter
 
 `adapters/claude-code/hook.sh` — a `PostToolUse` hook, same wiring
-pattern as `secret-guard`'s. Intended for tools that pull in
-*untrusted* content (WebFetch, Read on files from outside your control)
-— not every Bash call needs injection scanning, but content fetched
-from the open web or an untrusted repo does.
+pattern as `secret-guard`'s.
+
+**Bash only, not the WebFetch/Read coverage this was originally meant
+for — found the hard way, not a design choice.** The real threat model
+for injection detection is content pulled from *untrusted* sources
+(WebFetch, Read on files outside your control) — eval's own
+`indirect_injection` category exists specifically to prove the model
+catches this. But Claude Code's `updatedToolOutput` schema is per tool,
+and only Bash's shape is confirmed from the docs (a structured object,
+not a bare string) — Read/Grep/WebFetch's exact shapes aren't
+confirmed. A wrong-shaped value is silently ignored, so guessing and
+shipping coverage for those tools risked a silent no-op exactly like
+the one this fix closed for Bash. Scoped down to Bash only until those
+shapes are confirmed, rather than ship something that looks like
+coverage and isn't.
 
 Unlike `secret-guard`, this hook does **not** redact — there's no safe
 way to blank arbitrary suspicious text without risking breaking
@@ -73,6 +84,13 @@ legitimate content. Instead, on a malicious classification it prepends
 a visible warning banner ahead of the (unmodified) content, so the
 model sees it but with an explicit "don't trust this as instructions"
 signal.
+
+If you're also running secret-guard and/or pii-guard, prefer
+[claude-plugin-guards](https://github.com/gramatr/claude-plugin-guards)'
+combined hook over wiring this adapter independently alongside theirs
+on the same matcher — Claude Code runs same-event hooks in parallel
+with an undefined resolution order when more than one returns
+`updatedToolOutput` for the same call.
 
 Point it at the local Docker daemon or the hosted service via
 `INJECTION_GUARD_ENDPOINT` (default `http://127.0.0.1:8730`). Fails
