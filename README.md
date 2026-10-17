@@ -104,22 +104,52 @@ comply with:
 
 ## Model size: 86M only, not configurable
 
-Compared both Prompt Guard 2 sizes against a small hand-labeled eval set
-(`eval/dataset.py`, `eval/compare_models.py` — English + French/Spanish/
-Chinese injection and benign examples):
+Compared both Prompt Guard 2 sizes against a category-based eval set
+(`eval/dataset.py`, `eval/compare_models.py`) — expanded beyond the
+original language-only split to cover attack-technique diversity:
+direct override, jailbreak/roleplay framing, fake conversation-turn
+markers, obfuscated/encoded payloads, indirect injection (content aimed
+at an agent reading it, not a human), multilingual, and false-positive
+stress tests against benign text that merely *discusses* injection.
 
-| Model | Accuracy | Avg latency | False negatives |
-|---|---|---|---|
-| 86M | 93.8% | 64.8ms | 1 |
-| 22M | 68.8% | 23.5ms | 5 |
+| Category | 86M | 22M |
+|---|---|---|
+| Direct override | 3/3 | 2/3 |
+| Jailbreak/roleplay | 2/2 | 1/2 |
+| Fake turn markers | 1/2 | 0/2 |
+| Obfuscated/encoded | 2/3 | 0/3 |
+| Indirect injection | 2/2 | 0/2 |
+| Multilingual | 3/3 | 1/3 |
+| Clean (benign) | 8/8 | 8/8 |
+| Near-miss benign (talks about injection, isn't one) | 2/4 | 3/4 |
+| **Overall accuracy** | **85.2%** | **55.6%** |
+| **Avg latency** | **68.2ms** | **29.4ms** |
 
-22M saves ~40ms per classification — imperceptible for a synchronous
-hook gating a tool call — in exchange for missing roughly 1 in 3 attacks
-instead of 1 in 16, including 2 of 3 non-English cases. Not a real
-tradeoff, so there's no user-facing size option: `config.py` defaults to
-86M and that's the only size shipped. Re-run `eval/compare_models.py` if
-this ever needs revisiting (e.g. a future Prompt Guard version, or a
-resource-constrained deployment target where 40ms actually matters).
+The gap is wider than the original narrower eval suggested (93.8% vs
+68.8%) — the expanded dataset makes the case for 86M even more clearly.
+No user-facing size option: `config.py` defaults to 86M and that's the
+only size shipped.
+
+**Two genuine limitations this expansion found, not just a model-size
+question:**
+
+- **Base64-encoded payloads are missed by BOTH models**, confidently
+  (86M scores it 0.999 confident the encoded text is benign). Unicode
+  homoglyph substitution and zero-width-character insertion are both
+  correctly caught by 86M — the blind spot is specific to
+  structured/encoded obfuscation, not obfuscation in general. Not
+  fixed in this version; documented so it isn't assumed covered.
+- **False positives on benign text that discusses prompt injection as
+  a topic.** A blog post explaining what prompt injection is, and a
+  code comment about filtering for it, both get flagged as attacks
+  by 86M. Security documentation, code comments about this exact
+  class of defense, and training materials are a real false-positive
+  risk — worth knowing before this gates something like a
+  documentation-heavy codebase.
+
+Re-run `eval/compare_models.py` if this ever needs revisiting (a future
+Prompt Guard version, or a resource-constrained target where the
+latency gap actually matters).
 
 ## v1 scope notes
 
