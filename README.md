@@ -1,11 +1,28 @@
 # injection-guard
 
-Prompt-injection / jailbreak detection daemon, built on
+Jailbreak / direct-override detection daemon, built on
 [Llama Prompt Guard 2](https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M)
 (86M, multilingual variant). Sibling project to
 [gramatr/secret-guard](https://github.com/gramatr/secret-guard) — same
 `core`/`adapters` philosophy, different problem: secrets are caught by
 pattern-matching, prompt injection needs a model.
+
+**Scope claim, stated precisely (read this before relying on this
+tool):** this detects explicit attempts to override a model's prior
+instructions or safety behavior — "ignore your previous instructions,"
+persona hijacks, fake system-prompt impersonation. That's also the
+limit of what the underlying model targets: Meta's own model card for
+Prompt Guard 2 states it has no separate label for prompts that cause
+*unintentional* instruction-following, calling that objective "too
+broad to be useful." **This tool does not reliably catch indirect
+injection — malicious instructions embedded in data an agent reads
+(tool output, API responses, documents, emails) that don't use
+override language.** Measured recall on that specific case
+(InjecAgent, n=200, real tool-output injections) is 6%. Do not use this
+as your only control against indirect injection in an agent with tool
+access. See [`RESEARCH-SPIKE-classification.md`](RESEARCH-SPIKE-classification.md)
+for the full category breakdown and what each number does and doesn't
+cover.
 
 ## Architecture: one daemon, two deployment targets
 
@@ -142,6 +159,27 @@ stress tests against benign text that merely *discusses* injection.
 | Near-miss benign (talks about injection, isn't one) | 2/4 | 3/4 |
 | **Overall accuracy** | **85.2%** | **55.6%** |
 | **Avg latency** | **68.2ms** | **29.4ms** |
+
+**Read this table as a model-size comparison, not a catch-rate claim.**
+It's useful for deciding 86M vs 22M (86M wins on every row) — it is
+**not** a reliable estimate of real-world recall, for two reasons: (1)
+it's 27 total examples, 1–3 per attack category, not a statistically
+powered sample; (2) "overall accuracy" blends attack categories with
+12 easy benign/near-miss-benign cases, so it stays high even where
+attack recall is poor. The "Indirect injection: 2/2" row above looks
+like a strength; measured against a real corpus of the same attack
+type at n=200 instead of n=2 (InjecAgent, tool-output injections),
+recall is 6%, not 100%. Direct-override-style attacks (rows 1–2, the
+category this model and its own vendor benchmark are actually built
+and measured for) also underperformed expectations on our two larger
+real corpora — deepset/prompt-injections 13.3% recall (n=116),
+JailbreakBench 17.1% recall (n=182) — well below Meta's own published
+97.5% recall @ 1% FPR for direct jailbreak detection. That gap is
+large enough it may be an integration/threshold issue on our side
+rather than a model limitation; not yet root-caused. See
+[`RESEARCH-SPIKE-classification.md`](RESEARCH-SPIKE-classification.md)
+for the category-by-category breakdown this table should never be
+quoted without.
 
 The gap is wider than the original narrower eval suggested (93.8% vs
 68.8%) — the expanded dataset makes the case for 86M even more clearly.
