@@ -161,6 +161,47 @@ emulation would mostly re-prove correctness already shown on amd64, at
 a much higher time cost for a CPU-bound workload; worth doing on real
 arm64 hardware before relying on it, not as a blocker to call this done.
 
+## CPU vs GPU
+
+CPU-only by default; GPU is opt-in, never required. Set via
+`INJECTION_GUARD_DEVICE`:
+
+- `auto` (default) — uses a GPU if `torch.cuda.is_available()`, CPU otherwise.
+- `cpu` — forces CPU even if a GPU is present.
+- `cuda` — forces GPU; **fails loudly at startup** if none is visible, rather
+  than silently falling back to CPU and leaving a misconfigured deploy
+  looking merely "slow."
+
+**Measured, not estimated** (RTX 4090, single-request latency — the actual
+pattern a hook uses, not batched throughput):
+
+| Device | Avg latency | VRAM |
+|---|---|---|
+| CPU | ~59ms | — |
+| GPU | ~12ms | ~1GB |
+
+A real ~5x speedup — but CPU is fine for the synchronous-hook use case
+(both numbers are imperceptible gating a single tool call). GPU only
+matters at the hosted platform-service tier's request volume, where
+throughput — not single-request latency — is what a GPU actually buys you.
+
+**Two Docker variants, because this matters for image size, not just
+runtime behavior:**
+
+- `docker/Dockerfile` (default) — the standard torch wheel, which bundles
+  the full NVIDIA CUDA runtime whether or not you use it. **5.85GB image.**
+  Required if you ever want `INJECTION_GUARD_DEVICE=auto`/`cuda` to work.
+- `docker/Dockerfile.cpu` — torch's CPU-only wheel. **1.12GB image** (verified:
+  no `nvidia`/`triton`/`cuda` packages present), ~4.7GB smaller. **Cannot use
+  a GPU even if one becomes available later** — use this only when you know
+  the deployment target has no GPU and never will.
+
+The naive fix (reinstalling torch's CPU wheel on top of an already-synced
+full install) does **not** work — it leaves the CUDA packages orphaned as
+dead weight and makes the image *bigger* (6.57GB, measured). The CPU-only
+Dockerfile installs torch from the CPU-only index *before* anything else
+can pull in the default wheel as a transitive dependency — order matters.
+
 ## Roadmap
 
 - [x] Replace the placeholder license file with the verbatim text

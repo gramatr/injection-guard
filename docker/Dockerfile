@@ -4,6 +4,14 @@
 # Same image serves both deployment targets described in README.md:
 # local `docker run` (auth off) and the scaled platform service (auth on,
 # via INJECTION_GUARD_AUTH_TOKEN).
+#
+# This variant installs the DEFAULT torch wheel (bundles the full NVIDIA
+# CUDA runtime, ~5.85GB image) so it can opt into a real GPU via
+# INJECTION_GUARD_DEVICE=auto (default — see config.py; measured ~5x
+# faster on an RTX 4090, ~59ms CPU vs ~12ms GPU per classification).
+# If you know this will only ever run on CPU, use docker/Dockerfile.cpu
+# instead — same app, ~1.1GB image, no CUDA packages, cannot use a GPU
+# even if one becomes available later.
 
 FROM python:3.12-slim
 

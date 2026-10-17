@@ -1,0 +1,52 @@
+# Lean CPU-only variant — same app code as docker/Dockerfile, but installs
+# torch's CPU-only wheel instead of the default PyPI wheel, which bundles
+# the full NVIDIA CUDA runtime (nvidia + torch + triton ≈ 5.2GB, measured)
+# even though most local/advanced-tier deployments never touch a GPU.
+# Use this tag for the local Docker tier; use the default (docker/Dockerfile)
+# for the hosted platform-service tier, which can opt into a real GPU via
+# INJECTION_GUARD_DEVICE (see config.py) — the CPU-only wheel here CANNOT
+# use a GPU even if one is present, so don't use this variant where GPU
+# opt-in might ever matter.
+#
+# Build: docker build -t injection-guard:cpu -f docker/Dockerfile.cpu .
+
+FROM python:3.12-slim
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+COPY pyproject.toml uv.lock README.md ./
+COPY src/ ./src/
+
+# `uv sync --frozen` against uv.lock pulls the DEFAULT torch wheel, which
+# depends on the full NVIDIA CUDA runtime — reinstalling torch afterward
+# (tried first, see git history) leaves those CUDA packages orphaned as
+# dead weight, making the image BIGGER, not smaller. The only way to
+# avoid ever pulling them is to install torch from the CPU-only index
+# FIRST, before anything else can pull in the default wheel as a
+# transitive dependency.
+RUN uv venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+RUN uv pip install torch --python /app/.venv/bin/python \
+      --index-url https://download.pytorch.org/whl/cpu
+# Now install the rest of the project WITHOUT letting the resolver touch
+# torch again: --no-deps on the project itself, then its non-torch
+# dependencies explicitly (mirrors pyproject.toml's dependency list
+# minus torch — see that file if this list ever changes).
+RUN uv pip install --python /app/.venv/bin/python --no-deps -e . && \
+    uv pip install --python /app/.venv/bin/python \
+      "fastapi>=0.115" "uvicorn[standard]>=0.30" "transformers>=4.44"
+
+ENV HF_HOME=/app/.cache/huggingface
+ENV INJECTION_GUARD_HOST=0.0.0.0
+# Belt-and-suspenders: this wheel can't use a GPU even if one were
+# visible, but force the config to agree rather than rely on torch's
+# cuda.is_available() returning False on its own.
+ENV INJECTION_GUARD_DEVICE=cpu
+
+EXPOSE 8730
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8730/health', timeout=3)" || exit 1
+
+CMD ["injection-guard-daemon"]
